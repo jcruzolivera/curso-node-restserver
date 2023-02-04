@@ -1,41 +1,75 @@
 const { response } = require('express');
+const Usuario = require('../models/usuario');
+const bcryptjs = require('bcryptjs');
 
-const usersGet = (req, res = response) => {
+const usersGet = async (req, res = response) => {
 
-    const {hola = 'nn', edad = 0} = req.query;
+    const {limit = 5, since = 0} = req.query;
+
+    const query = {
+        estado:true
+    }
+    
+    const [usuarios, total] = await Promise.all([
+        Usuario.find(query)
+            .limit(Number(limit))
+            .skip(Number(since)),
+        
+        Usuario.countDocuments(query)
+    ]);
 
     res.json({
-        msg:'get api cc',
-        hola,
-        edad
+        total,
+        usuarios
     });
 }
 
-const usersPost = (req, res) => {
+const usersPost = async (req, res) => {
 
-    const {nombre, edad} = req.body;
+
+    
+    const {nombre, correo, password, rol} = req.body;
+
+    const usuario = new Usuario({nombre, correo, password, rol});
+
+    //Encriptar contraseña
+    const salt = bcryptjs.genSaltSync();
+    usuario.password = bcryptjs.hashSync(password, salt);
+
+    //Guardar en BD
+
+    await usuario.save();
 
     res.status(201).json({
-        msg:'post api',
-        nombre,
-        edad
+        usuario
     });
 }
 
-const usersPut = (req, res) => {
+const usersPut = async (req, res) => {
 
     const {id} = req.params;
 
-    res.json({
-        msg:'put api',
-        id
-    });
+    const {_id, password, google, correo, ...resto} = req.body;
+
+    if(password){
+        //Encriptar contraseña
+        const salt = bcryptjs.genSaltSync();
+        resto.password = bcryptjs.hashSync(password, salt);
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate(id, resto);
+
+    res.json({usuario});
 }
 
-const usersDelete =  (req, res) => {
-    res.json({
-        msg:'del api'
-    });
+const usersDelete =  async (req, res) => {
+    const {id} = req.params;
+
+    //const usuario = await Usuario.findByIdAndDelete(id);
+
+    const usuario = await Usuario.findByIdAndUpdate(id, {estado: false});
+
+    return res.json({usuario});
 }
 
 module.exports = {
